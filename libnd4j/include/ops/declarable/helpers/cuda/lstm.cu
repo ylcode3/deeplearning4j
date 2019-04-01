@@ -167,10 +167,12 @@ void lstmTimeLoop(graph::LaunchContext* context, const NDArray* x, const NDArray
         auto zf = m({0,0, 2*numUnits, 3*numUnits});      	// z for forget gate, [bS, numUnits]
         auto zo = m({0,0, 3*numUnits, 4*numUnits});      	// z for output gate, [bS, numUnits]
 
+        auto phStart = std::chrono::system_clock::now();
         if(peephole) {                                              // add peephole connections: z  +  ct_1*Wc
             zi += (*cLast) * (*Wci);       // add peephole connections to input gate
             zf += (*cLast) * (*Wcf);       // add peephole connections to forget gate
         }
+        auto phEnd = std::chrono::system_clock::now();
 
         // current sell state = ft*cLast + it*tanh(mmul(Wxc,xt) + mmul(Whc,ht_1) + bc
         auto fbStart = std::chrono::system_clock::now();
