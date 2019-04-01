@@ -139,7 +139,10 @@ void lstmTimeLoop(graph::LaunchContext* context, const NDArray* x, const NDArray
         const int inSize      = xt->sizeAt(1);
         const int numUnits    = cLast->sizeAt(1);
 
+        nd4j_printf("Batch: %lld, inSize: %lld, numUnits: %lld\n", bS, inSize, numUnits);
+
         //Concat inputs: [xt, yt-1]: concat([bs,nIn],[bs,nOut]) -> [bs, (nIn+nOut)]
+        auto concatStart = std::chrono::system_clock::now();
         nd4j::ops::concat concat;
         Context cContext(119);
         auto concatOut = NDArrayFactory::create(xt->ordering(), {xt->sizeAt(0), xt->sizeAt(1) + yLast->sizeAt(1)}, xt->dataType(), xt->getContext());
@@ -149,9 +152,14 @@ void lstmTimeLoop(graph::LaunchContext* context, const NDArray* x, const NDArray
         cContext.getIArguments()->emplace_back(1);
 
         concat.execute(&cContext);
+        auto concatEnd = std::chrono::system_clock::now();
 
+        auto mmulStart = std::chrono::system_clock::now();
         auto m = mmul(concatOut, *W);    //mmul: [bs, (nIn+numUnits)]* [(inSize+numUnits), 4*numUnits] = [bs, 4*numUnits]
+        auto mmulEnd = std::chrono::system_clock::now();
+        auto bAddStart = std::chrono::system_clock::now();
         m += (*b);
+        auto bAddEnd = std::chrono::system_clock::now();
 
         //Note: weights are ordered [inputGate, blockInput, forgetGate, outputGate] to match TF (TF code comments state [i,f,z/ci,o] but behaviour is [i,z,f,o])
         auto zi = m({0,0, 0,            numUnits});      	// z for input modulation gate, [bS, numUnits]
@@ -165,20 +173,28 @@ void lstmTimeLoop(graph::LaunchContext* context, const NDArray* x, const NDArray
         }
 
         // current sell state = ft*cLast + it*tanh(mmul(Wxc,xt) + mmul(Whc,ht_1) + bc
+        auto fbStart = std::chrono::system_clock::now();
         if(forgetBias != 0.0){
             zf += forgetBias;
         }
+        auto fbEnd = std::chrono::system_clock::now();
 
+        auto actTanhStart = std::chrono::system_clock::now();
         zz.applyTransform(transform::Tanh, z);      //z = tanh(zz)
+        auto actTanhEnd = std::chrono::system_clock::now();
+        auto actSigmoidStart = std::chrono::system_clock::now();
         zi.applyTransform(transform::Sigmoid, i);   //i = sigmoid(zi)
         zf.applyTransform(transform::Sigmoid, f);   //f = sigmoid(zf);
+        auto actSigmoidEnd = std::chrono::system_clock::now();
 
 
         //cell state = blockInput .* inputGate + prevCellState .* forgetGate
+        auto cellStateStart = std::chrono::system_clock::now();
         z->applyPairwiseTransform(pairwise::Multiply, i, c, nullptr);       //c = z * i
         auto temp = (*f) * (*cLast);
         *c += temp;                              //c = (i * z) + (zf * (*cLast))
         c->applyTransform(transform::Tanh, h);  //h = tanh(c)
+        auto cellStateEnd = std::chrono::system_clock::now();
 
 
         // if clipping value is provided then cell state is clipped by this value prior to the cell output activation
@@ -195,7 +211,21 @@ void lstmTimeLoop(graph::LaunchContext* context, const NDArray* x, const NDArray
 
         // current cell output = ot*tanh(ct)
         c->applyTransform(transform::Tanh, h);  //h = tanh(c)
+        auto mulStart = std::chrono::system_clock::now();
         o->applyPairwiseTransform(pairwise::Multiply, h, y, nullptr);   //y = o * h
+        auto mulEnd = std::chrono::system_clock::now();
+
+        auto concatTime = std::chrono::duration_cast<std::chrono::microseconds> ((concatEnd - concatStart)).count();
+        auto mmulTime = std::chrono::duration_cast<std::chrono::microseconds> ((mmulEnd - mmulStart)).count();
+        auto bAddTime = std::chrono::duration_cast<std::chrono::microseconds> ((bAddEnd - bAddStart)).count();
+        auto phTime = std::chrono::duration_cast<std::chrono::microseconds> ((phEnd - phStart)).count();
+        auto actTanhTime = std::chrono::duration_cast<std::chrono::microseconds> ((actTanhEnd - actTanhStart)).count();
+        auto actSigmoidTime = std::chrono::duration_cast<std::chrono::microseconds> ((actSigmoidEnd - actSigmoidStart)).count();
+        auto cellStateTime = std::chrono::duration_cast<std::chrono::microseconds> ((cellStateEnd - cellStateStart)).count();
+        auto mulTime = std::chrono::duration_cast<std::chrono::microseconds> ((mulEnd - mulStart)).count();
+
+        nd4j_printf("concat=%lld, mmul=%lld, bAdd=%lld, ph=%lld, actTanh=%lld, actSigmoid=%lld, cell=%lld, mul=%lld\n",concatTime, mmulTime, bAddTime, phTime,
+                    actTanhTime, actSigmoidTime, cellStateTime, mulTime);
     }
 
 
