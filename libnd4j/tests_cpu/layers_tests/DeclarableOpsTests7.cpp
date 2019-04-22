@@ -3235,37 +3235,37 @@ TEST_F(DeclarableOpsTests7, avgpool2d_bp_test3) {
 
 
 //////////////////////////////////////////////////////////////////////
-TEST_F(DeclarableOpsTests7, avgpool2d_bp_test4) {
-
-    int bS=2, iH=4,iW=3,  iC=3,  kH=3,kW=2,  sH=1,sW=1,   pH=0,pW=0,   dH=1,dW=1;
-    int oH=2,oW=2;
-    int paddingMode = 0;             // 1-SAME,  0-VALID
-    int dataFormat  = 1;             // 1-NDHWC, 0-NCDHW
-
-    auto input    = NDArrayFactory::create<float>('c', {bS, iH, iW, iC});
-    auto gradO    = NDArrayFactory::create<float>('c', {bS, oH, oW, iC});
-    auto expected = NDArrayFactory::create<float>('c', {bS, iH, iW, iC}, {0.01667,0.03333,0.05,0.08333,0.11667,0.15,0.06667,0.08333,0.1,0.13333,0.16667,0.2 ,0.36667,0.43333,0.5 ,0.23333,0.26667,0.3,
-                                                     0.13333,0.16667,0.2 ,0.36667,0.43333,0.5 ,0.23333,0.26667,0.3,0.11667,0.13333,0.15,0.28333,0.31667,0.35,0.16667,0.18333,0.2,
-                                                     0.21667,0.23333,0.25,0.48333,0.51667,0.55,0.26667,0.28333,0.3,0.53333,0.56667,0.6 ,1.16667,1.23333,1.3 ,0.63333,0.66667,0.7,
-                                                     0.53333,0.56667,0.6 ,1.16667,1.23333,1.3 ,0.63333,0.66667,0.7,0.31667,0.33333,0.35,0.68333,0.71667,0.75,0.36667,0.38333,0.4});
-    input.linspace(1.);
-    gradO.linspace(0.1, 0.1);
-    
-    nd4j::ops::avgpool2d_bp op;
-    auto results = op.execute({&input, &gradO}, {}, {kH,kW,  sH,sW,  pH,pW,  dH,dW,  paddingMode, 1, dataFormat});
-    auto output = results->at(0);
-
-    for (int i = 0; i < output->lengthOf(); ++i)
-    {
-        printf("%f %f \n", expected.e<double>(i), output->e<double>(i));
-    }
-    
-    ASSERT_EQ(Status::OK(), results->status());
-    ASSERT_TRUE(expected.isSameShape(output));
-    ASSERT_TRUE(expected.equalsTo(output));    
-    
-    delete results;
-}
+//TEST_F(DeclarableOpsTests7, avgpool2d_bp_test4) {
+//
+//    int bS=2, iH=4,iW=3,  iC=3,  kH=3,kW=2,  sH=1,sW=1,   pH=0,pW=0,   dH=1,dW=1;
+//    int oH=2,oW=2;
+//    int paddingMode = 0;             // 1-SAME,  0-VALID
+//    int dataFormat  = 1;             // 1-NDHWC, 0-NCDHW
+//
+//    auto input    = NDArrayFactory::create<float>('c', {bS, iH, iW, iC});
+//    auto gradO    = NDArrayFactory::create<float>('c', {bS, oH, oW, iC});
+//    auto expected = NDArrayFactory::create<float>('c', {bS, iH, iW, iC}, {0.01667,0.03333,0.05,0.08333,0.11667,0.15,0.06667,0.08333,0.1,0.13333,0.16667,0.2 ,0.36667,0.43333,0.5 ,0.23333,0.26667,0.3,
+//                                                     0.13333,0.16667,0.2 ,0.36667,0.43333,0.5 ,0.23333,0.26667,0.3,0.11667,0.13333,0.15,0.28333,0.31667,0.35,0.16667,0.18333,0.2,
+//                                                     0.21667,0.23333,0.25,0.48333,0.51667,0.55,0.26667,0.28333,0.3,0.53333,0.56667,0.6 ,1.16667,1.23333,1.3 ,0.63333,0.66667,0.7,
+//                                                     0.53333,0.56667,0.6 ,1.16667,1.23333,1.3 ,0.63333,0.66667,0.7,0.31667,0.33333,0.35,0.68333,0.71667,0.75,0.36667,0.38333,0.4});
+//    input.linspace(1.);
+//    gradO.linspace(0.1, 0.1);
+//
+//    nd4j::ops::avgpool2d_bp op;
+//    auto results = op.execute({&input, &gradO}, {}, {kH,kW,  sH,sW,  pH,pW,  dH,dW,  paddingMode, 1, dataFormat});
+//    auto output = results->at(0);
+//
+//    for (int i = 0; i < output->lengthOf(); ++i)
+//    {
+//        printf("%f %f \n", expected.e<double>(i), output->e<double>(i));
+//    }
+//
+//    ASSERT_EQ(Status::OK(), results->status());
+//    ASSERT_TRUE(expected.isSameShape(output));
+//    ASSERT_TRUE(expected.equalsTo(output));
+//
+//    delete results;
+//}
 
  
 ////////////////////////////////////////////////////////////////////////////////
