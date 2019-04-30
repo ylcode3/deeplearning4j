@@ -745,14 +745,18 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
 
 #ifdef HAVE_MKLDNN
     if (block.isUseMKLDNN() && nd4j::MKLDNNStream::isSupported<X, Y>()) {
+        nd4j_printf("Step %i\n", 0);
         std::vector<nd4j::MKLDNNStream>& streams = block.getMKLDNNStreams();
         if (streams.empty()) {
             streams.push_back(MKLDNNStream("conv2d_bp_weights"));
             streams.push_back(MKLDNNStream("conv2d_bp_data"));
         }
 
+        nd4j_printf("Step %i\n", 10);
         bool resetW = streams[0].checkAndReset({input, weights, bias, gradO}, {gradI, gradW, gradB}, {}, {kH, kW, sH, sW, pH, pW, dH, dW, isSameMode, isNCHW});
         bool resetI = streams[1].checkAndReset({input, weights, bias, gradO}, {gradI, gradW, gradB}, {}, {kH, kW, sH, sW, pH, pW, dH, dW, isSameMode, isNCHW});
+
+        nd4j_printf("Step %i\n", 20);
         if (resetW || resetI) {
             mkldnn_memory_desc_t empty;
             mkldnn::memory::desc conv_src_md(empty), conv_diff_src_md(empty), conv_weights_md(empty),
@@ -761,11 +765,15 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                                  user_diff_weights_md(empty), user_bias_md(empty), user_dst_md(empty);
             mkldnn::memory::dims conv_strides, conv_padding, conv_padding_r;
 
+            nd4j_printf("Step %i\n", 30);
+
             ConvolutionUtils::getMKLDNNMemoryDescConv2d(kH, kW, sH, sW, pH, pW, dH, dW, isSameMode, isNCHW,
                     bS, iC, iH, iW, oC, oH, oW, input, gradI, weights, gradW, gradB, gradO,
                     &conv_src_md, &conv_diff_src_md, &conv_weights_md, &conv_diff_weights_md, &conv_bias_md, &conv_dst_md,
                     &user_src_md, &user_diff_src_md, &user_weights_md, &user_diff_weights_md, &user_bias_md, &user_dst_md,
                     conv_strides, conv_padding, conv_padding_r);
+
+            nd4j_printf("Step %i\n", 40);
 
             auto conv_desc = gradB != nullptr
                     ? convolution_forward::desc(prop_kind::forward,
@@ -777,6 +785,8 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
 
             auto conv_prim_desc = convolution_forward::primitive_desc(conv_desc, streams[0].getEngine());
 
+            nd4j_printf("Step %i\n", 50);
+
             if (gradW != nullptr) {
                 auto convW_desc = gradB != nullptr
                         ? convolution_backward_weights::desc(
@@ -786,11 +796,15 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                                 convolution_direct, conv_src_md, conv_diff_weights_md,
                                 conv_dst_md, conv_strides, conv_padding, conv_padding_r, padding_kind::zero);
 
+                nd4j_printf("Step %i\n", 60);
+
                 auto engine = streams[0].getEngine();
                 auto convW_prim_desc = convolution_backward_weights::primitive_desc(convW_desc, engine, conv_prim_desc);
                 auto userW_src_memory = mkldnn::memory({user_src_md, engine}, const_cast<NDArray*>(input)->buffer());
                 auto userW_weights_memory = mkldnn::memory({user_diff_weights_md, engine}, gradW->buffer());
                 auto userW_dst_memory = mkldnn::memory({user_dst_md, engine}, const_cast<NDArray*>(gradO)->buffer());
+
+                nd4j_printf("Step %i\n", 70);
 
                 auto convW_src_memory = userW_src_memory;
                 streams[0].addMemory(userW_src_memory);
@@ -799,7 +813,11 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                     convW_src_memory = mkldnn::memory(convW_prim_desc.src_primitive_desc());
                     streams[0].addMemory(convW_src_memory);
                     streams[0].addOperation(reorder(userW_src_memory, convW_src_memory));
+
+                    nd4j_printf("Step %i\n", 80);
                 }
+
+                nd4j_printf("Step %i\n", 90);
 
                 auto convW_weights_memory = userW_weights_memory;
                 streams[0].addMemory(userW_weights_memory);
@@ -809,6 +827,8 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                     streams[0].addMemory(convW_weights_memory);
                 }
 
+                nd4j_printf("Step %i\n", 100);
+
                 auto convW_dst_memory = userW_dst_memory;
                 streams[0].addMemory(userW_dst_memory);
                 if (mkldnn::memory::primitive_desc(convW_prim_desc.diff_dst_primitive_desc())
@@ -817,6 +837,8 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                     streams[0].addMemory(convW_dst_memory);
                     streams[0].addOperation(reorder(userW_dst_memory, convW_dst_memory));
                 }
+
+                nd4j_printf("Step %i\n", 110);
 
                 if (gradB != nullptr) {
                     auto convW_bias_memory = mkldnn::memory(convW_prim_desc.diff_bias_primitive_desc(), gradB->buffer());
@@ -830,13 +852,19 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                         != userW_weights_memory.get_primitive_desc()) {
                     streams[0].addOperation(reorder(convW_weights_memory, userW_weights_memory));
                 }
+
+                nd4j_printf("Step %i\n", 120);
             }
+
+            nd4j_printf("Step %i\n", 130);
 
             if (gradI != nullptr) {
                 auto convI_desc =
                         convolution_backward_data::desc(
                                 convolution_direct, conv_diff_src_md, conv_weights_md,
                                 conv_dst_md, conv_strides, conv_padding, conv_padding_r, padding_kind::zero);
+
+                nd4j_printf("Step %i\n", 140);
 
                 auto engine = streams[1].getEngine();
                 auto convI_prim_desc = convolution_backward_data::primitive_desc(convI_desc, engine, conv_prim_desc);
@@ -851,6 +879,8 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                     convI_src_memory = mkldnn::memory(convI_prim_desc.diff_src_primitive_desc());
                     streams[1].addMemory(convI_src_memory);
                 }
+
+                nd4j_printf("Step %i\n", 150);
 
                 auto convI_weights_memory = userI_weights_memory;
                 streams[1].addMemory(userI_weights_memory);
@@ -870,6 +900,8 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
                     streams[1].addOperation(reorder(userI_dst_memory, convI_dst_memory));
                 }
 
+                nd4j_printf("Step %i\n", 160);
+
                 streams[1].addOperation(convolution_backward_data(convI_prim_desc, convI_dst_memory, convI_weights_memory, convI_src_memory));
 
                 if (mkldnn::memory::primitive_desc(convI_prim_desc.diff_src_primitive_desc())
@@ -879,9 +911,14 @@ static void conv2dBP_(nd4j::graph::Context& block, const NDArray* input, const N
             }
         }
 
+        nd4j_printf("Step %i\n", 500);
+
         if (gradW != nullptr) {
             streams[0].submitAndWait();
         }
+
+        nd4j_printf("Step %i\n", 600);
+
         if (gradI != nullptr) {
             streams[1].submitAndWait();
         }
